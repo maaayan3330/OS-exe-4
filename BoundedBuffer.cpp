@@ -1,38 +1,36 @@
 #include "BoundedBuffer.h"
 
 // Constructor
-BoundedBuffer::BoundedBuffer(int size) 
-    : capacity(size), full(0), empty(size) {}
+BoundedBuffer::BoundedBuffer(int size) : capacity(size) {}
 
 // Inserts a new object into the bounded buffer
 void BoundedBuffer::insert(char* s) {
-    // down(empty) - go to slepp if there is no enoght place
-    empty.acquire();  
-    {
-        // down(mutex)
-        std::lock_guard<std::mutex> lock(mutex); 
-        // add the string to the buffer
-        buffer.push(s); 
-    }
-    // up(full)
-    full.release();  
+    std::unique_lock<std::mutex> lock(mutex);
+
+    // מחכים שהתור לא יהיה מלא
+    not_full.wait(lock, [this]() { return buffer.size() < capacity; });
+
+    // מוסיפים את הפריט לתור
+    buffer.push(s);
+
+    // מעירים את מי שמחכה שהתור לא יהיה ריק
+    not_empty.notify_one();
 }
 
 // Removes and returns the first object from the bounded buffer
 char* BoundedBuffer::remove() {
-    // down(full) - go to sleep is there no one to remove
-    full.acquire();  
-    char* item;
-    {
-        // down(mutex)
-        std::lock_guard<std::mutex> lock(mutex); 
-        // take the first item from queue
-        item = buffer.front();  
-        // take the elemnt off
-        buffer.pop();           
-    }
-     // up(empty): - say there is hoe to take off 
-    empty.release(); 
-    // return the item that was took
-    return item;  
+    std::unique_lock<std::mutex> lock(mutex);
+
+    // מחכים שהתור לא יהיה ריק
+    not_empty.wait(lock, [this]() { return !buffer.empty(); });
+
+    // מוציאים את הפריט הראשון בתור
+    char* item = buffer.front();
+    buffer.pop();
+
+    // מעירים את מי שמחכה שהתור לא יהיה מלא
+    not_full.notify_one();
+
+    // מחזירים את הפריט
+    return item;
 }

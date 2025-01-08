@@ -3,23 +3,18 @@
 
 #include <queue>
 #include <mutex>
-#include <semaphore.h>
+#include <condition_variable>
 
-// this is the class for a structer - BoundedBuffer
 class BoundedBuffer {
 private:
-    std::queue<char*> buffer;  
-    // max size of the queue
-    size_t capacity;    
-    // the binary semaphore     
-    std::mutex mutex;    
-    // the semaphore that count how much items in the queue      
-    std::counting_semaphore<> full;  
-    // the semaphore that count how much free spaces in the queue 
-    std::counting_semaphore<> empty; 
+    std::queue<char*> buffer;       // התור המוגבל
+    size_t capacity;                // הקיבולת המרבית של התור
+    std::mutex mutex;               // מנעול לסנכרון גישה
+    std::condition_variable not_full;  // אות למצב שהתור לא מלא
+    std::condition_variable not_empty; // אות למצב שהתור לא ריק
 
 public:
-    //Constructor that creates a new bounded buffer with size places to store objects.
+    // Constructor that creates a new bounded buffer with size places to store objects
     BoundedBuffer(int size);
 
     // Inserts a new object into the bounded buffer
@@ -29,4 +24,4 @@ public:
     char* remove();
 };
 
-#endif  
+#endif

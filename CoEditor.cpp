@@ -2,6 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <cstring> // For strcmp
 
 // Constructor
 CoEditor::CoEditor(const std::string& type, BoundedBuffer& inputQueue, BoundedBuffer& outputQueue)
@@ -14,9 +15,14 @@ void CoEditor::edit() {
         char* message = inputQueue.remove();
 
         // Check for "DONE" message
-        if (std::string(message) == "DONE") {
-            // Forward "DONE" to the output queue and exit
-            outputQueue.insert(const_cast<char*>("DONE"));
+        if (std::strcmp(message, "DONE") == 0) {
+            // Forward "DONE" to the output queue
+            outputQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
+
+            // Free the memory of the original "DONE" message
+            delete[] message;
+
+            // Exit the loop
             break;
         }
 

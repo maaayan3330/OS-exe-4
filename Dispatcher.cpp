@@ -1,5 +1,6 @@
 #include "Dispatcher.h"
 #include <iostream>
+#include <cstring> // For strcmp
 
 // Constructor
 Dispatcher::Dispatcher(std::vector<BoundedBuffer*>& producerQueues, BoundedBuffer& sportsQueue, BoundedBuffer& newsQueue, BoundedBuffer& weatherQueue)
@@ -11,33 +12,37 @@ Dispatcher::Dispatcher(std::vector<BoundedBuffer*>& producerQueues, BoundedBuffe
 // Function to dispatch messages
 void Dispatcher::dispatch() {
     size_t numProducers = producerQueues.size();
-    // keep an eye when the producer finish
-    std::vector<bool> producersDone(numProducers, false); 
-    // count how much producers finish
-    size_t doneCount = 0; 
+    // Track when each producer is done
+    std::vector<bool> producersDone(numProducers, false);
+    size_t doneCount = 0;
 
-    // robin 
-    size_t currentIndex = 0; 
+    // Round Robin index
+    size_t currentIndex = 0;
 
     while (doneCount < numProducers) {
         BoundedBuffer* currentQueue = producerQueues[currentIndex];
         char* message = currentQueue->remove();
 
-        // "DONE" - check 
-        if (std::string(message) == "DONE") {
+        // Check for "DONE"
+        if (std::strcmp(message, "DONE") == 0) {
             if (!producersDone[currentIndex]) {
                 producersDone[currentIndex] = true;
                 doneCount++;
             }
+            // Clean up memory for "DONE" message
+            delete[] message;
         } else {
-            // sort by type
-            std::string msgString(message);
-            if (msgString.find("SPORTS") != std::string::npos) {
+            // Sort messages by type
+            if (std::strstr(message, "SPORTS") != nullptr) {
                 sportsQueue.insert(message);
-            } else if (msgString.find("NEWS") != std::string::npos) {
+            } else if (std::strstr(message, "NEWS") != nullptr) {
                 newsQueue.insert(message);
-            } else if (msgString.find("WEATHER") != std::string::npos) {
+            } else if (std::strstr(message, "WEATHER") != nullptr) {
                 weatherQueue.insert(message);
+            } else {
+                // In case of unexpected message type
+                std::cerr << "Unknown message type: " << message << std::endl;
+                delete[] message; // Clean up unexpected message
             }
         }
 
@@ -45,8 +50,8 @@ void Dispatcher::dispatch() {
         currentIndex = (currentIndex + 1) % numProducers;
     }
 
-    // send done after all 
-    sportsQueue.insert(const_cast<char*>("DONE"));
-    newsQueue.insert(const_cast<char*>("DONE"));
-    weatherQueue.insert(const_cast<char*>("DONE"));
+    // Signal done for all queues
+    sportsQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
+    newsQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
+    weatherQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
 }
