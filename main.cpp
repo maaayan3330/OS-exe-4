@@ -1,15 +1,15 @@
 #include "Producer.h"
+#include "Dispatcher.h"
 #include "BoundedBuffer.h"
 #include <thread>
 #include <vector>
-#include "Dispatcher.h"
 
 int main() {
-    const int bufferSize = 10;
-    const int numProducers = 2;
-    const int numProducts = 5;
+    const int bufferSize = 3;  // גודל התור
+    const int numProducers = 2; // מספר היוצרים
+    const int numProducts = 4;  // מספר המוצרים לכל יוצר
 
-    // יצירת תורים פרטיים ליוצרים
+    // יצירת תורים פרטיים לכל יוצר
     std::vector<BoundedBuffer*> producerQueues;
     for (int i = 0; i < numProducers; ++i) {
         producerQueues.push_back(new BoundedBuffer(bufferSize));
@@ -20,7 +20,7 @@ int main() {
     BoundedBuffer newsQueue(bufferSize);
     BoundedBuffer weatherQueue(bufferSize);
 
-    // יצירת יוצרים
+    // יצירת Producers
     std::vector<std::thread> producerThreads;
     for (int i = 0; i < numProducers; ++i) {
         producerThreads.emplace_back([&, i]() {
@@ -31,14 +31,14 @@ int main() {
 
     // יצירת Dispatcher
     Dispatcher dispatcher(producerQueues, sportsQueue, newsQueue, weatherQueue, numProducers);
-    std::thread dispatcherThread([&]() { dispatcher.dispatch(); });
+    std::thread dispatcherThread(&Dispatcher::dispatch, &dispatcher);
 
-    // סיום עבודת היוצרים
+    // המתנה לכל היוצרים
     for (auto& thread : producerThreads) {
         thread.join();
     }
 
-    // סיום עבודת ה-Dispatcher
+    // המתנה ל-Dispatcher
     dispatcherThread.join();
 
     // ניקוי זיכרון

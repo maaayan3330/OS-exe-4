@@ -1,6 +1,9 @@
 #include "Producer.h"
 #include <iostream>
 #include <cstdlib> // For rand()
+#include <mutex>
+
+#include "Shared.h"
 
 // Constructor
 Producer::Producer(int id, int numProducts, BoundedBuffer& queue)
@@ -13,7 +16,10 @@ Producer::Producer(int id, int numProducts, BoundedBuffer& queue)
 
 // Produce function
 void Producer::produce() {
-    std::cout << "Producer " << id << " started.\n";
+    {
+        std::lock_guard<std::mutex> lock(printMutex);
+        std::cout << "Producer " << id << " started.\n";
+    }
 
     for (int i = 0; i < numProducts; ++i) {
         // Select a random type
@@ -28,12 +34,18 @@ void Producer::produce() {
         // Insert the message into the queue
         queue.insert(const_cast<char*>(message.c_str()));
 
-        std::cout << "Producer " << id << " inserted: " << message << "\n";
+        {
+            std::lock_guard<std::mutex> lock(printMutex);
+            std::cout << "Producer " << id << " inserted: " << message << "\n";
+        }
     }
 
     // Send the DONE message
     std::string doneMessage = "Producer " + std::to_string(id) + " DONE";
     queue.insert(const_cast<char*>(doneMessage.c_str()));
 
-    std::cout << "Producer " << id << " finished producing.\n";
+    {
+        std::lock_guard<std::mutex> lock(printMutex);
+        std::cout << "Producer " << id << " finished producing.\n";
+    }
 }

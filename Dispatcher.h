@@ -1,28 +1,33 @@
 #ifndef DISPATCHER_H
 #define DISPATCHER_H
 
-#include <vector>
-#include <unordered_map>
-#include <string>
 #include "BoundedBuffer.h"
+#include <vector>
+#include <string>
+#include <unordered_map>
+#include <mutex>
 
 class Dispatcher {
 private:
     std::vector<BoundedBuffer*>& producerQueues; // תורים פרטיים של היוצרים
-    std::unordered_map<std::string, BoundedBuffer*> dispatchQueues; // מפת סוגים לתורים
-    int numProducers; // מספר היוצרים
-    int doneCount; // מונה הודעות DONE שהתקבלו
-    size_t currentProducer; // אינדקס היוצר הנוכחי ב-Round Robin
+    std::unordered_map<std::string, BoundedBuffer*> dispatchQueues; // מיפוי סוגים לתורי Dispatcher
+    int numProducers;            // מספר היוצרים
+    int doneCount;               // מספר היוצרים ששלחו DONE
+    int currentProducer;         // אינדקס היוצר הנוכחי בסריקה
+    std::mutex printMutex;       // מנעול להדפסות
 
 public:
     // Constructor
-    Dispatcher(std::vector<BoundedBuffer*>& producerQueues, 
-               BoundedBuffer& sportsQueue, 
-               BoundedBuffer& newsQueue, 
-               BoundedBuffer& weatherQueue, 
+    Dispatcher(std::vector<BoundedBuffer*>& producerQueues,
+               BoundedBuffer& sportsQueue,
+               BoundedBuffer& newsQueue,
+               BoundedBuffer& weatherQueue,
                int numProducers);
 
-    // Start dispatching messages
+    // Destructor
+    ~Dispatcher() = default;
+
+    // Dispatch messages
     void dispatch();
 };
 

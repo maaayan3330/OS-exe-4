@@ -22,7 +22,8 @@ public:
     ~BoundedBuffer();
 
     // Insert into the buffer
-    void insert(char* s);  // מחזירה void בהתאם לדרישה
+    void insert(const char* s);
+
 
     // Remove from the buffer
     char* remove();        // מחזירה מצביע למחרוזת
