@@ -1,20 +1,18 @@
 #include "BoundedBuffer.h"
+#include <cstring>
 #include <iostream>
 
 // Constructor
-BoundedBuffer::BoundedBuffer(int size) : maxSize(size) {
+BoundedBuffer::BoundedBuffer(int size)
+    : maxSize(size), empty(size), full(0) {
     pthread_mutex_init(&mutex, nullptr);
-    sem_init(&empty, 0, size); // Initially, buffer has 'size' empty slots
-    sem_init(&full, 0, 0);     // Initially, buffer has no full slots
 }
 
 // Destructor
 BoundedBuffer::~BoundedBuffer() {
     pthread_mutex_destroy(&mutex);
-    sem_destroy(&empty);
-    sem_destroy(&full);
 
-    // Free remaining items in the buffer
+    // מחיקת פריטים שנשארו בתור
     while (!buffer.empty()) {
         free(buffer.front());
         buffer.pop();
@@ -22,29 +20,39 @@ BoundedBuffer::~BoundedBuffer() {
 }
 
 // Insert into the buffer
-void BoundedBuffer::insert(const char* item) {
-    char* copiedItem = strdup(item); // Duplicate the string
-    sem_wait(&empty);               // Wait for an empty slot
-    pthread_mutex_lock(&mutex);     // Lock the buffer
+void BoundedBuffer::insert(char* s) {
+    char* copiedItem = strdup(s);    // יצירת עותק של המחרוזת
+    empty.down();                   // המתנה למקום פנוי בתור
+    pthread_mutex_lock(&mutex);     // נעילת התור
 
-    buffer.push(copiedItem);
-    std::cout << "Inserted: " << copiedItem << std::endl;
+    buffer.push(copiedItem);        // הוספת הפריט לתור
+    std::cout << "[Buffer Insert] Item inserted: " << copiedItem
+              << ", Buffer size: " << buffer.size() << std::endl;
 
-    pthread_mutex_unlock(&mutex);   // Unlock the buffer
-    sem_post(&full);                // Signal that a slot is full
+    pthread_mutex_unlock(&mutex);   // שחרור נעילת התור
+    full.up();                      // עדכון שהתווסף פריט חדש
 }
 
 // Remove from the buffer
 char* BoundedBuffer::remove() {
-    sem_wait(&full);               // Wait for a full slot
-    pthread_mutex_lock(&mutex);    // Lock the buffer
+    full.down();                   // המתנה לפריט זמין בתור
+    pthread_mutex_lock(&mutex);    // נעילת התור
 
-    char* item = buffer.front();
-    buffer.pop();
-    std::cout << "Removed: " << item << std::endl;
+    char* item = buffer.front();   // שליפת הפריט הראשון
+    buffer.pop();                  // הסרת הפריט מהתור
+    std::cout << "[Buffer Remove] Item removed: " << item
+              << ", Buffer size: " << buffer.size() << std::endl;
 
-    pthread_mutex_unlock(&mutex);  // Unlock the buffer
-    sem_post(&empty);              // Signal that a slot is empty
+    pthread_mutex_unlock(&mutex);  // שחרור נעילת התור
+    empty.up();                    // עדכון שהתווסף מקום פנוי
 
-    return item; // Return the pointer to the item
+    return item;                   // החזרת מצביע למחרוזת
 }
+
+bool BoundedBuffer::isEmpty() {
+    pthread_mutex_lock(&mutex);
+    bool empty = buffer.empty();
+    pthread_mutex_unlock(&mutex);
+    return empty;
+}
+

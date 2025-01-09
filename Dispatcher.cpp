@@ -3,12 +3,15 @@
 
 // Constructor
 Dispatcher::Dispatcher(std::vector<BoundedBuffer*>& producerQueues, 
-                       BoundedBuffer& sportsQueue,
-                       BoundedBuffer& newsQueue,
-                       BoundedBuffer& weatherQueue,
+                       BoundedBuffer& sportsQueue, 
+                       BoundedBuffer& newsQueue, 
+                       BoundedBuffer& weatherQueue, 
                        int numProducers)
-    : producerQueues(producerQueues), numProducers(numProducers), doneCount(0) {
-    // Map types to their respective queues using pointers
+    : producerQueues(producerQueues), 
+      numProducers(numProducers), 
+      doneCount(0), 
+      currentProducer(0) {
+    // Map סוגים לתורים
     dispatchQueues["SPORTS"] = &sportsQueue;
     dispatchQueues["NEWS"] = &newsQueue;
     dispatchQueues["WEATHER"] = &weatherQueue;
@@ -16,42 +19,50 @@ Dispatcher::Dispatcher(std::vector<BoundedBuffer*>& producerQueues,
 
 // Dispatch function
 void Dispatcher::dispatch() {
-    size_t currentProducer = 0; // Start with the first producer
+    std::cout << "Dispatcher started.\n";
 
     while (doneCount < numProducers) {
-        // Access the current producer's queue
+        // קבלת תור היוצר הנוכחי
         BoundedBuffer* currentQueue = producerQueues[currentProducer];
 
-        // Try to remove a message from the current producer's queue
-        std::string message = currentQueue->remove();
+        // בדיקה אם התור ריק
+        if (currentQueue->isEmpty()) {
+            // מעבר ליצרן הבא ב-Round Robin
+            currentProducer = (currentProducer + 1) % producerQueues.size();
+            continue;
+        }
 
-        std::cout << "Dispatcher processing message: " << message << " from Producer " << (currentProducer + 1) << "\n";
+        // הסרת פריט מהתור
+        char* message = currentQueue->remove();
 
-        if (message.find("DONE") != std::string::npos) {
+        std::cout << "Dispatcher processing message: " << message
+                  << " from Producer " << (currentProducer + 1) << "\n";
+
+        // אם ההודעה היא DONE
+        if (std::string(message).find("DONE") != std::string::npos) {
             doneCount++;
-            std::cout << "Dispatcher received DONE from Producer " << (currentProducer + 1) 
+            std::cout << "Dispatcher received DONE from Producer " << (currentProducer + 1)
                       << " (" << doneCount << "/" << numProducers << ")\n";
 
-            // Send DONE to all dispatch queues
+            // שליחת DONE לכל אחד מהתורים של Dispatcher
             for (auto& [type, queue] : dispatchQueues) {
                 queue->insert("DONE");
                 std::cout << "Dispatcher sent DONE to " << type << " queue.\n";
             }
         } else {
-            // Parse the message to find its type
-            size_t typeStart = message.find(" ") + 1;
-            typeStart = message.find(" ", typeStart) + 1;
-            size_t typeEnd = message.find(" ", typeStart);
-            std::string type = message.substr(typeStart, typeEnd - typeStart);
+            // חילוץ סוג ההודעה
+            size_t typeStart = std::string(message).find(" ") + 1;
+            size_t typeEnd = std::string(message).find(" ", typeStart);
+            std::string type = std::string(message).substr(typeStart, typeEnd - typeStart);
 
-            // Send the message to the appropriate queue
+            // הכנסה לתור המתאים
             if (dispatchQueues.find(type) != dispatchQueues.end()) {
-                dispatchQueues[type]->insert(message.c_str());
+                dispatchQueues[type]->insert(message);
                 std::cout << "Dispatcher sent: " << message << " to " << type << " queue.\n";
             }
         }
 
-        // Move to the next producer in the Round Robin
+        // מחזור Round Robin
         currentProducer = (currentProducer + 1) % producerQueues.size();
     }
 

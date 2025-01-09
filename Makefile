@@ -1,28 +1,30 @@
-all: ex4.out
+# שם הקובץ הסופי
+TARGET = test
 
-ex4.out: main.o BoundedBuffer.o Producer.o Dispatcher.o CoEditor.o ScreenManager.o Configuration.o
-	g++ -o ex4.out main.o BoundedBuffer.o Producer.o Dispatcher.o CoEditor.o ScreenManager.o Configuration.o -pthread
+# קבצי המקור
+SRC = main.cpp \
+      BoundedBuffer.cpp \
+      CountingSemaphore.cpp \
+      Producer.cpp \
+      Dispatcher.cpp
 
-main.o: main.cpp
-	g++ -c main.cpp
+# קבצי הכותרות
+HEADERS = BoundedBuffer.h \
+          CountingSemaphore.h \
+          Producer.h \
+          Dispatcher.h
 
-Configuration.o: Configuration.cpp
-	g++ -c Configuration.cpp
+# הקומפיילר והפלגים
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -pthread
 
-BoundedBuffer.o: BoundedBuffer.cpp
-	g++ -c BoundedBuffer.cpp
+# יעד ברירת המחדל
+all: $(TARGET)
 
-Producer.o: Producer.cpp
-	g++ -c Producer.cpp
+# יצירת הקובץ הבינארי
+$(TARGET): $(SRC) $(HEADERS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 
-Dispatcher.o: Dispatcher.cpp
-	g++ -c Dispatcher.cpp
-
-CoEditor.o: CoEditor.cpp
-	g++ -c CoEditor.cpp
-
-ScreenManager.o: ScreenManager.cpp
-	g++ -c ScreenManager.cpp
-
+# ניקוי קבצים שנוצרו
 clean:
-	rm -f *.o ex4.out
+	rm -f $(TARGET)
