@@ -2,26 +2,31 @@
 #define BOUNDED_BUFFER_H
 
 #include <queue>
-#include <mutex>
-#include <condition_variable>
+#include <pthread.h>
+#include <semaphore.h>
+#include <cstring> // For strdup and free
 
 class BoundedBuffer {
 private:
-    std::queue<char*> buffer;       // התור המוגבל
-    size_t capacity;                // הקיבולת המרבית של התור
-    std::mutex mutex;               // מנעול לסנכרון גישה
-    std::condition_variable not_full;  // אות למצב שהתור לא מלא
-    std::condition_variable not_empty; // אות למצב שהתור לא ריק
+    std::queue<char*> buffer;
+    int maxSize;
+
+    pthread_mutex_t mutex;
+    sem_t empty;
+    sem_t full;
 
 public:
-    // Constructor that creates a new bounded buffer with size places to store objects
+    // Constructor
     BoundedBuffer(int size);
 
-    // Inserts a new object into the bounded buffer
-    void insert(char* s);
+    // Destructor
+    ~BoundedBuffer();
 
-    // Removes and returns the first object from the bounded buffer
+    // Insert into the buffer
+    void insert(const char* item);
+
+    // Remove from the buffer
     char* remove();
 };
 
-#endif
+#endif // BOUNDED_BUFFER_H

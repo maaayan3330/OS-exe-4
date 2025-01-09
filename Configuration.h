@@ -5,23 +5,16 @@
 #include <vector>
 
 struct ProducerConfig {
-    int id;          // מזהה המפיק
-    int numMessages; // מספר ההודעות שהמפיק מייצר
-    int queueSize;   // גודל התור של המפיק
+    int numProducts;  // Number of products to produce
+    int queueSize;    // Queue size for this producer
 };
 
-class Configuration {
-private:
-    std::vector<ProducerConfig> producers; // רשימת המפיקים
-    int coEditorQueueSize;                // גודל התור המשותף לעורכים
-
-public:
-    // Constructor: טוען את הקונפיגורציה מהקובץ
-    Configuration(const std::string& fileName);
-
-    // Getters
-    const std::vector<ProducerConfig>& getProducers() const;
-    int getCoEditorQueueSize() const;
+struct Configuration {
+    std::vector<ProducerConfig> producers;  // Configuration for each producer
+    int coEditorQueueSize;                  // Shared queue size for Co-Editors
 };
 
-#endif  // CONFIGURATION_H
+// Function to parse the configuration file
+Configuration parseConfigurationFile(const std::string& filename);
+
+#endif // CONFIGURATION_H

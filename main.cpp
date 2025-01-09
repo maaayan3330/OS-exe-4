@@ -1,91 +1,87 @@
-#include "Configuration.h"
 #include "BoundedBuffer.h"
 #include "Producer.h"
 #include "Dispatcher.h"
 #include "CoEditor.h"
 #include "ScreenManager.h"
-#include <thread>
-#include <vector>
+#include "Configuration.h"
 #include <iostream>
-#include <memory> // לשימוש ב-std::unique_ptr
+#include <vector>
+#include <thread>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <config file>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <config_file>" << std::endl;
         return 1;
     }
 
+    // Parse the configuration file
+    Configuration config;
     try {
-        // קריאת הקונפיגורציה
-        Configuration config(argv[1]);
-
-        // יצירת תורים למפיקים
-        std::vector<std::unique_ptr<BoundedBuffer>> producerQueues; // רשימת תורים דינמיים
-        std::vector<Producer> producers; // רשימת מפיקים
-
-        for (const auto& producerConfig : config.getProducers()) {
-            // יצירת תור דינמי עבור המפיק
-            producerQueues.emplace_back(std::make_unique<BoundedBuffer>(producerConfig.queueSize));
-            // יצירת המפיק עם הפניה לתור שלו
-            producers.emplace_back(producerConfig.id, producerConfig.numMessages, *producerQueues.back());
-        }
-
-        // יצירת תורים לעורכים
-        BoundedBuffer sportsQueue(config.getCoEditorQueueSize());
-        BoundedBuffer newsQueue(config.getCoEditorQueueSize());
-        BoundedBuffer weatherQueue(config.getCoEditorQueueSize());
-
-        // יצירת התור המשותף למנהל המסך
-        BoundedBuffer sharedQueue(config.getCoEditorQueueSize());
-
-        // יצירת Co-Editors
-        CoEditor sportsEditor("SPORTS", sportsQueue, sharedQueue);
-        CoEditor newsEditor("NEWS", newsQueue, sharedQueue);
-        CoEditor weatherEditor("WEATHER", weatherQueue, sharedQueue);
-
-        // יצירת רשימת מצביעים לתורי המפיקים עבור ה-Dispatcher
-        std::vector<BoundedBuffer*> producerQueuePtrs;
-        for (auto& queue : producerQueues) {
-            producerQueuePtrs.push_back(queue.get());
-        }
-
-        // יצירת Dispatcher
-        Dispatcher dispatcher(producerQueuePtrs, sportsQueue, newsQueue, weatherQueue);
-
-        // יצירת Screen Manager
-        ScreenManager screenManager(sharedQueue);
-
-        // Threads למפיקים
-        std::vector<std::thread> producerThreads;
-        for (auto& producer : producers) {
-            producerThreads.emplace_back(&Producer::produce, &producer);
-        }
-
-        // Thread ל-Dispatcher
-        std::thread dispatcherThread(&Dispatcher::dispatch, &dispatcher);
-
-        // Threads ל-Co-Editors
-        std::thread sportsThread(&CoEditor::edit, &sportsEditor);
-        std::thread newsThread(&CoEditor::edit, &newsEditor);
-        std::thread weatherThread(&CoEditor::edit, &weatherEditor);
-
-        // Thread למנהל המסך
-        std::thread screenThread(&ScreenManager::display, &screenManager);
-
-        // המתנה לסיום כל ה-Threads
-        for (auto& thread : producerThreads) {
-            thread.join();
-        }
-        dispatcherThread.join();
-        sportsThread.join();
-        newsThread.join();
-        weatherThread.join();
-        screenThread.join();
-
-    } catch (const std::exception& ex) {
-        std::cerr << "Error: " << ex.what() << std::endl;
+        config = parseConfigurationFile(argv[1]);
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
 
+    const int numProducers = config.producers.size();
+
+    // Buffers for each producer
+    std::vector<BoundedBuffer*> producerQueues;
+    for (const auto& producerConfig : config.producers) {
+        producerQueues.push_back(new BoundedBuffer(producerConfig.queueSize));
+    }
+
+    // Buffers for each message type
+    BoundedBuffer sportsQueue(config.coEditorQueueSize);
+    BoundedBuffer newsQueue(config.coEditorQueueSize);
+    BoundedBuffer weatherQueue(config.coEditorQueueSize);
+
+    // Shared queue for Screen Manager
+    BoundedBuffer sharedQueue(config.coEditorQueueSize);
+
+    // Create producers
+    std::vector<std::thread> producerThreads;
+    for (size_t i = 0; i < config.producers.size(); ++i) {
+        producerThreads.emplace_back([&, i]() {
+            Producer producer(i + 1, config.producers[i].numProducts, *producerQueues[i]);
+            producer.produce();
+        });
+    }
+
+    // Create dispatcher
+    Dispatcher dispatcher(producerQueues, sportsQueue, newsQueue, weatherQueue, numProducers);
+    std::thread dispatcherThread(&Dispatcher::dispatch, &dispatcher);
+
+    // Create Co-Editors
+    std::thread sportsEditor(&CoEditor::edit, CoEditor(sportsQueue, sharedQueue, "SPORTS"));
+    std::thread newsEditor(&CoEditor::edit, CoEditor(newsQueue, sharedQueue, "NEWS"));
+    std::thread weatherEditor(&CoEditor::edit, CoEditor(weatherQueue, sharedQueue, "WEATHER"));
+
+    // Create Screen Manager
+    ScreenManager screenManager(sharedQueue, 3);
+    std::thread screenManagerThread(&ScreenManager::display, &screenManager);
+
+    // Wait for all producers to finish
+    for (auto& thread : producerThreads) {
+        thread.join();
+    }
+
+    // Wait for the dispatcher to finish
+    dispatcherThread.join();
+
+    // Wait for Co-Editors to finish
+    sportsEditor.join();
+    newsEditor.join();
+    weatherEditor.join();
+
+    // Wait for Screen Manager to finish
+    screenManagerThread.join();
+
+    // Clean up
+    for (auto queue : producerQueues) {
+        delete queue;
+    }
+
+    std::cout << "All producers, dispatcher, Co-Editors, and Screen Manager have finished.\n";
     return 0;
 }

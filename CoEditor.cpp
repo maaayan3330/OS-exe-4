@@ -1,35 +1,32 @@
 #include "CoEditor.h"
 #include <iostream>
-#include <thread>
-#include <chrono>
-#include <cstring> // For strcmp
+#include <thread> // For sleep
+#include <chrono> // For time delays
 
 // Constructor
-CoEditor::CoEditor(const std::string& type, BoundedBuffer& inputQueue, BoundedBuffer& outputQueue)
-    : type(type), inputQueue(inputQueue), outputQueue(outputQueue) {}
+CoEditor::CoEditor(BoundedBuffer& inputQueue, BoundedBuffer& sharedQueue, const std::string& type)
+    : inputQueue(inputQueue), sharedQueue(sharedQueue), type(type) {}
 
-// Function to edit messages
+// Edit function
 void CoEditor::edit() {
     while (true) {
-        // Remove a message from the input queue
-        char* message = inputQueue.remove();
+        // Get a message from the input queue
+        std::string message = inputQueue.remove();
 
-        // Check for "DONE" message
-        if (std::strcmp(message, "DONE") == 0) {
-            // Forward "DONE" to the output queue
-            outputQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
-
-            // Free the memory of the original "DONE" message
-            delete[] message;
-
-            // Exit the loop
-            break;
+        // Check for DONE message
+        if (message == "DONE") {
+            std::cout << "Co-Editor for " << type << " received DONE. Passing it to Screen Manager.\n";
+            sharedQueue.insert(message.c_str());
+            break; // Stop editing when DONE is received
         }
 
-        // Simulate editing delay
+        // Simulate editing by sleeping for 0.1 seconds
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::cout << "Co-Editor for " << type << " edited: " << message << "\n";
 
-        // Forward the edited message to the output queue
-        outputQueue.insert(message);
+        // Pass the message to the shared queue
+        sharedQueue.insert(message.c_str());
     }
+
+    std::cout << "Co-Editor for " << type << " finished processing messages.\n";
 }

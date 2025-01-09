@@ -1,36 +1,50 @@
 #include "BoundedBuffer.h"
+#include <iostream>
 
 // Constructor
-BoundedBuffer::BoundedBuffer(int size) : capacity(size) {}
-
-// Inserts a new object into the bounded buffer
-void BoundedBuffer::insert(char* s) {
-    std::unique_lock<std::mutex> lock(mutex);
-
-    // מחכים שהתור לא יהיה מלא
-    not_full.wait(lock, [this]() { return buffer.size() < capacity; });
-
-    // מוסיפים את הפריט לתור
-    buffer.push(s);
-
-    // מעירים את מי שמחכה שהתור לא יהיה ריק
-    not_empty.notify_one();
+BoundedBuffer::BoundedBuffer(int size) : maxSize(size) {
+    pthread_mutex_init(&mutex, nullptr);
+    sem_init(&empty, 0, size); // Initially, buffer has 'size' empty slots
+    sem_init(&full, 0, 0);     // Initially, buffer has no full slots
 }
 
-// Removes and returns the first object from the bounded buffer
+// Destructor
+BoundedBuffer::~BoundedBuffer() {
+    pthread_mutex_destroy(&mutex);
+    sem_destroy(&empty);
+    sem_destroy(&full);
+
+    // Free remaining items in the buffer
+    while (!buffer.empty()) {
+        free(buffer.front());
+        buffer.pop();
+    }
+}
+
+// Insert into the buffer
+void BoundedBuffer::insert(const char* item) {
+    char* copiedItem = strdup(item); // Duplicate the string
+    sem_wait(&empty);               // Wait for an empty slot
+    pthread_mutex_lock(&mutex);     // Lock the buffer
+
+    buffer.push(copiedItem);
+    std::cout << "Inserted: " << copiedItem << std::endl;
+
+    pthread_mutex_unlock(&mutex);   // Unlock the buffer
+    sem_post(&full);                // Signal that a slot is full
+}
+
+// Remove from the buffer
 char* BoundedBuffer::remove() {
-    std::unique_lock<std::mutex> lock(mutex);
+    sem_wait(&full);               // Wait for a full slot
+    pthread_mutex_lock(&mutex);    // Lock the buffer
 
-    // מחכים שהתור לא יהיה ריק
-    not_empty.wait(lock, [this]() { return !buffer.empty(); });
-
-    // מוציאים את הפריט הראשון בתור
     char* item = buffer.front();
     buffer.pop();
+    std::cout << "Removed: " << item << std::endl;
 
-    // מעירים את מי שמחכה שהתור לא יהיה מלא
-    not_full.notify_one();
+    pthread_mutex_unlock(&mutex);  // Unlock the buffer
+    sem_post(&empty);              // Signal that a slot is empty
 
-    // מחזירים את הפריט
-    return item;
+    return item; // Return the pointer to the item
 }

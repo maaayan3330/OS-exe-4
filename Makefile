@@ -1,27 +1,28 @@
-# שם הקובץ הבינארי שיווצר
-EXEC = ex4.out
+all: ex4.out
 
-# קומפיילר
-CC = g++
+ex4.out: main.o BoundedBuffer.o Producer.o Dispatcher.o CoEditor.o ScreenManager.o Configuration.o
+	g++ -o ex4.out main.o BoundedBuffer.o Producer.o Dispatcher.o CoEditor.o ScreenManager.o Configuration.o -pthread
 
-# פלאגים לקומפילציה
-CFLAGS = -std=c++17 -Wall -pthread
+main.o: main.cpp
+	g++ -c main.cpp
 
-# כל קבצי המקור וה-Header בפרויקט
-SRC = main.cpp Configuration.cpp BoundedBuffer.cpp Producer.cpp Dispatcher.cpp CoEditor.cpp ScreenManager.cpp
-HEADERS = Configuration.h BoundedBuffer.h Producer.h Dispatcher.h CoEditor.h ScreenManager.h
+Configuration.o: Configuration.cpp
+	g++ -c Configuration.cpp
 
-# חוקים ל-Makefile
+BoundedBuffer.o: BoundedBuffer.cpp
+	g++ -c BoundedBuffer.cpp
 
-all: $(EXEC)
+Producer.o: Producer.cpp
+	g++ -c Producer.cpp
 
-$(EXEC): $(SRC) $(HEADERS)
-	$(CC) $(CFLAGS) -o $(EXEC) $(SRC)
+Dispatcher.o: Dispatcher.cpp
+	g++ -c Dispatcher.cpp
 
-# ניקוי הקבצים שנוצרים בקומפילציה
+CoEditor.o: CoEditor.cpp
+	g++ -c CoEditor.cpp
+
+ScreenManager.o: ScreenManager.cpp
+	g++ -c ScreenManager.cpp
+
 clean:
-	rm -f $(EXEC)
-
-# הרצה של התוכנית עם קובץ הקונפיגורציה
-run: $(EXEC)
-	./$(EXEC) config.txt
+	rm -f *.o ex4.out

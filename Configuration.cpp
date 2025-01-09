@@ -1,42 +1,41 @@
 #include "Configuration.h"
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <stdexcept>
 
-// Constructor: טוען את הקונפיגורציה מהקובץ
-Configuration::Configuration(const std::string& fileName) {
-    std::ifstream file(fileName);
+Configuration parseConfigurationFile(const std::string& filename) {
+    Configuration config;
+    std::ifstream file(filename);
+
     if (!file.is_open()) {
-        throw std::runtime_error("Failed to open configuration file: " + fileName);
+        throw std::runtime_error("Could not open configuration file: " + filename);
     }
 
     std::string line;
     while (std::getline(file, line)) {
         if (line.find("PRODUCER") != std::string::npos) {
-            // קריאת מזהה המפיק
-            int producerId = std::stoi(line.substr(9)); // "PRODUCER X"
+            // Parse producer configuration
+            ProducerConfig producer;
+            if (!std::getline(file, line)) break;
+            producer.numProducts = std::stoi(line);
 
-            // קריאת מספר ההודעות
-            std::getline(file, line);
-            int numMessages = std::stoi(line);
+            if (!std::getline(file, line)) break;
+            auto pos = line.find("queue size = ");
+            if (pos != std::string::npos) {
+                producer.queueSize = std::stoi(line.substr(pos + 13));
+            }
 
-            // קריאת גודל התור
-            std::getline(file, line);
-            int queueSize = std::stoi(line.substr(12)); // "queue size = X"
-
-            producers.push_back({producerId, numMessages, queueSize});
+            config.producers.push_back(producer);
         } else if (line.find("Co-Editor queue size") != std::string::npos) {
-            // קריאת גודל התור של ה-Co-Editors
-            coEditorQueueSize = std::stoi(line.substr(22)); // "Co-Editor queue size = X"
+            // Parse Co-Editor queue size
+            auto pos = line.find("queue size = ");
+            if (pos != std::string::npos) {
+                config.coEditorQueueSize = std::stoi(line.substr(pos + 13));
+            }
         }
     }
-}
 
-// Getters
-const std::vector<ProducerConfig>& Configuration::getProducers() const {
-    return producers;
-}
-
-int Configuration::getCoEditorQueueSize() const {
-    return coEditorQueueSize;
+    file.close();
+    return config;
 }

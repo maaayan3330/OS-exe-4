@@ -2,26 +2,27 @@
 #define DISPATCHER_H
 
 #include "BoundedBuffer.h"
-#include <vector>
 #include <string>
+#include <vector>
+#include <unordered_map>
 
 class Dispatcher {
 private:
-    // a list of the producers
-    std::vector<BoundedBuffer*>& producerQueues; 
-    // S dispatcher queue
-    BoundedBuffer& sportsQueue;    
-    // N dispatcher queue            
-    BoundedBuffer& newsQueue;  
-    // W dispatcher queue                 
-    BoundedBuffer& weatherQueue;               
+    std::vector<BoundedBuffer*>& producerQueues;  // Queues shared with producers (Round Robin)
+    std::unordered_map<std::string, BoundedBuffer*> dispatchQueues; // Queues per type (using pointers)
+    int numProducers;              // Number of producers
+    int doneCount;                 // Counter for DONE messages
 
 public:
     // Constructor
-    Dispatcher(std::vector<BoundedBuffer*>& producerQueues, BoundedBuffer& sportsQueue, BoundedBuffer& newsQueue, BoundedBuffer& weatherQueue);
+    Dispatcher(std::vector<BoundedBuffer*>& producerQueues, 
+               BoundedBuffer& sportsQueue,
+               BoundedBuffer& newsQueue,
+               BoundedBuffer& weatherQueue,
+               int numProducers);
 
     // Function to start dispatching messages
     void dispatch();
 };
 
-#endif 
+#endif // DISPATCHER_H

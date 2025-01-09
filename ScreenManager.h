@@ -6,14 +6,16 @@
 
 class ScreenManager {
 private:
-    BoundedBuffer& sharedQueue; // התור המשותף עם ה-Co-Editors
+    BoundedBuffer& sharedQueue; // Queue shared with Co-Editors
+    int numEditors;             // Number of Co-Editors (usually 3)
+    int doneCount;              // Counter for DONE messages
 
 public:
     // Constructor
-    ScreenManager(BoundedBuffer& sharedQueue);
+    ScreenManager(BoundedBuffer& sharedQueue, int numEditors);
 
-    // Function to start managing the screen
+    // Function to display messages
     void display();
 };
 
-#endif  // SCREENMANAGER_H
+#endif // SCREENMANAGER_H

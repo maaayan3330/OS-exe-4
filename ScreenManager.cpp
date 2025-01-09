@@ -1,31 +1,30 @@
 #include "ScreenManager.h"
 #include <iostream>
-#include <cstring> // For strcmp
 
 // Constructor
-ScreenManager::ScreenManager(BoundedBuffer& sharedQueue)
-    : sharedQueue(sharedQueue) {}
+ScreenManager::ScreenManager(BoundedBuffer& sharedQueue, int numEditors)
+    : sharedQueue(sharedQueue), numEditors(numEditors), doneCount(0) {}
 
-// Function to display messages on the screen
+// Display function
 void ScreenManager::display() {
-    int doneCount = 0; // Counter for "DONE" messages
+    while (true) {
+        // Get a message from the shared queue
+        std::string message = sharedQueue.remove();
 
-    while (doneCount < 3) { // Wait for three "DONE" messages
-        // Remove a message from the shared queue
-        char* message = sharedQueue.remove();
-
-        // Check if the message is "DONE"
-        if (std::strcmp(message, "DONE") == 0) {
+        // Check for DONE message
+        if (message == "DONE") {
             doneCount++;
-        } else {
-            // Print the message to the screen
-            std::cout << "Screen Manager: " << message << std::endl;
-        }
+            std::cout << "Screen Manager received DONE (" << doneCount << "/" << numEditors << ").\n";
 
-        // Free the memory of the message
-        delete[] message;
+            // If all Co-Editors sent DONE, break
+            if (doneCount == numEditors) {
+                break;
+            }
+        } else {
+            // Display the message
+            std::cout << "Screen Manager displayed: " << message << "\n";
+        }
     }
 
-    // Print final "DONE" message
-    std::cout << "Screen Manager: DONE" << std::endl;
+    std::cout << "Screen Manager: DONE\n";
 }

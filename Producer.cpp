@@ -1,48 +1,27 @@
 #include "Producer.h"
-#include <iostream>
-#include <thread>
 #include <chrono>
-#include <cstring> // For std::strcpy
+#include <thread>
+#include <vector>
+#include <iostream>
+#include <cstring>  // For strdup
 
-// Constructor
-Producer::Producer(int producerId, int messages, BoundedBuffer& buffer)
-    : id(producerId), numMessages(messages), queue(buffer) {
-    // Initialize counters for each type to 0
-    for (const auto& type : types) {
-        typeCounters[type] = 0;
+Producer::Producer(int id, int num_products, BoundedBuffer &queue)
+    : id(id), num_products(num_products), queue(queue) {}
+
+void Producer::produce()
+{
+    std::vector<std::string> types = {"SPORTS", "NEWS", "WEATHER"};
+    std::cout << "num_products: " << num_products << std::endl; // This should work now
+
+    for (int i = 0; i < num_products; ++i)
+    {
+        std::string type = types[rand() % types.size()];
+        // Convert std::string to const char* and insert it into the buffer
+        std::string item = "Producer " + std::to_string(id) + " " + type + " " + std::to_string(i);
+        queue.insert(strdup(item.c_str()));  // Use strdup to create a new char* copy
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-}
+    std::cout << "done " << num_products << std::endl; // This should work now
 
-// Function to produce messages
-void Producer::produce() {
-    // Random seed
-    std::random_device rd;  
-    // Random number generator
-    std::mt19937 gen(rd()); 
-    // For random message type
-    std::uniform_int_distribution<> dis(0, types.size() - 1); 
-
-    for (int i = 0; i < numMessages; ++i) {
-        // Choose a random type
-        std::string type = types[dis(gen)];
-
-        // Get the current count for this type
-        int count = typeCounters[type];
-
-        // Create the message
-        std::string message = "Producer " + std::to_string(id) + " " + type + " " + std::to_string(count);
-
-        // Allocate memory dynamically for the message
-        char* msg = new char[message.size() + 1];
-        std::strcpy(msg, message.c_str());
-
-        // Insert the message into the queue
-        queue.insert(msg);
-
-        // Increment the counter for this type
-        typeCounters[type]++;
-    }
-
-    // Signal that production is done
-    queue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
+    queue.insert(strdup("DONE"));  // Send DONE message as a char*
 }

@@ -1,57 +1,59 @@
 #include "Dispatcher.h"
 #include <iostream>
-#include <cstring> // For strcmp
 
 // Constructor
-Dispatcher::Dispatcher(std::vector<BoundedBuffer*>& producerQueues, BoundedBuffer& sportsQueue, BoundedBuffer& newsQueue, BoundedBuffer& weatherQueue)
-    : producerQueues(producerQueues),
-      sportsQueue(sportsQueue),
-      newsQueue(newsQueue),
-      weatherQueue(weatherQueue) {}
+Dispatcher::Dispatcher(std::vector<BoundedBuffer*>& producerQueues, 
+                       BoundedBuffer& sportsQueue,
+                       BoundedBuffer& newsQueue,
+                       BoundedBuffer& weatherQueue,
+                       int numProducers)
+    : producerQueues(producerQueues), numProducers(numProducers), doneCount(0) {
+    // Map types to their respective queues using pointers
+    dispatchQueues["SPORTS"] = &sportsQueue;
+    dispatchQueues["NEWS"] = &newsQueue;
+    dispatchQueues["WEATHER"] = &weatherQueue;
+}
 
-// Function to dispatch messages
+// Dispatch function
 void Dispatcher::dispatch() {
-    size_t numProducers = producerQueues.size();
-    // Track when each producer is done
-    std::vector<bool> producersDone(numProducers, false);
-    size_t doneCount = 0;
-
-    // Round Robin index
-    size_t currentIndex = 0;
+    size_t currentProducer = 0; // Start with the first producer
 
     while (doneCount < numProducers) {
-        BoundedBuffer* currentQueue = producerQueues[currentIndex];
-        char* message = currentQueue->remove();
+        // Access the current producer's queue
+        BoundedBuffer* currentQueue = producerQueues[currentProducer];
 
-        // Check for "DONE"
-        if (std::strcmp(message, "DONE") == 0) {
-            if (!producersDone[currentIndex]) {
-                producersDone[currentIndex] = true;
-                doneCount++;
+        // Try to remove a message from the current producer's queue
+        std::string message = currentQueue->remove();
+
+        std::cout << "Dispatcher processing message: " << message << " from Producer " << (currentProducer + 1) << "\n";
+
+        if (message.find("DONE") != std::string::npos) {
+            doneCount++;
+            std::cout << "Dispatcher received DONE from Producer " << (currentProducer + 1) 
+                      << " (" << doneCount << "/" << numProducers << ")\n";
+
+            // Send DONE to all dispatch queues
+            for (auto& [type, queue] : dispatchQueues) {
+                queue->insert("DONE");
+                std::cout << "Dispatcher sent DONE to " << type << " queue.\n";
             }
-            // Clean up memory for "DONE" message
-            delete[] message;
         } else {
-            // Sort messages by type
-            if (std::strstr(message, "SPORTS") != nullptr) {
-                sportsQueue.insert(message);
-            } else if (std::strstr(message, "NEWS") != nullptr) {
-                newsQueue.insert(message);
-            } else if (std::strstr(message, "WEATHER") != nullptr) {
-                weatherQueue.insert(message);
-            } else {
-                // In case of unexpected message type
-                std::cerr << "Unknown message type: " << message << std::endl;
-                delete[] message; // Clean up unexpected message
+            // Parse the message to find its type
+            size_t typeStart = message.find(" ") + 1;
+            typeStart = message.find(" ", typeStart) + 1;
+            size_t typeEnd = message.find(" ", typeStart);
+            std::string type = message.substr(typeStart, typeEnd - typeStart);
+
+            // Send the message to the appropriate queue
+            if (dispatchQueues.find(type) != dispatchQueues.end()) {
+                dispatchQueues[type]->insert(message.c_str());
+                std::cout << "Dispatcher sent: " << message << " to " << type << " queue.\n";
             }
         }
 
-        // Round Robin
-        currentIndex = (currentIndex + 1) % numProducers;
+        // Move to the next producer in the Round Robin
+        currentProducer = (currentProducer + 1) % producerQueues.size();
     }
 
-    // Signal done for all queues
-    sportsQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
-    newsQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
-    weatherQueue.insert(new char[5]{'D', 'O', 'N', 'E', '\0'});
+    std::cout << "Dispatcher finished processing all messages.\n";
 }
